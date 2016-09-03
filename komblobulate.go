@@ -19,11 +19,6 @@ const (
     CipherType_Aead = 1
     )
 
-type Config struct {
-    ResistType int
-    CipherType int
-}
-
 // Given a reader of a kblobbed output, creates a reader of the
 // unblobbed contents.  The kblob itself will contain its
 // configuration.
@@ -34,17 +29,86 @@ func NewReader(kblob io.ReadSeeker) (unblob io.Reader, err error) {
 
 // Given a writer of where the user wants the kblobbed output to
 // go and a configuration, creates a writer for unblobbed contents.
-// resistConfig should be:
-// - nil if ResistType is ResistType_None
-// - *RsConfig if ResistType is ResistType_Rs
-// cipherConfig should be:
-// - nil if CipherType is CipherType_None
-// - *AeadConfig if CipherType is CipherType_Aead
-// The variable parameters are passed to the cipher config.
-// AeadConfig, for example, will expect a single passphrase
-// (which it will munge into an AES key).
-func NewWriter(kblob io.Writer, config Config, resistConfig interface{}, cipherConfig interface{}, p ...interface{}) (unblob io.WriteCloser, err error) {
-    // TODO.
-    return nil, nil
+// The variable parameters should contain the relevant parameters
+// to create the resist codec, followed by those to create the
+// cipher codec.  For example:
+// - a none config wants none
+// - rs wants three integers DataPieceSize, DataPieceCount,
+// ParityPieceCount
+// - aead wants a passphrase.
+func NewWriter(kblob io.Writer, resistType int, cipherType int, p ...interface{}) (unblob io.WriteCloser, err error) {
+
+    pIdx := 0
+
+    var resist, cipher KCodec
+    switch resistType {
+    case ResistType_None:
+        resist = &NullConfig{}
+
+    case ResistType_Rs:
+        dataPieceSize, ok := p[pIdx].(int)
+        pIdx++
+        if !ok {
+            panic("Bad Rs parameter")
+        }
+
+        dataPieceCount, ok := p[pIdx].(int)
+        pIdx++
+        if !ok {
+            panic("Bad Rs parameter")
+        }
+
+        parityPieceCount, ok := p[pIdx].(int)
+        pIdx++
+        if !ok {
+            panic("Bad Rs parameter")
+        }
+
+        resist = &RsConfig{dataPieceSize, dataPieceCount, parityPieceCount}
+
+    default:
+        panic("Bad resist type")
+    }
+
+    switch cipherType {
+    case CipherType_None:
+        cipher = &NullConfig{}
+
+    case CipherType_Aead:
+        cipher, err = NewAeadConfig()
+        if err != nil {
+            return nil, err
+        }
+
+    default:
+        panic("Bad cipher type")
+    }
+
+    config := &Config{resistType, cipherType}
+
+    // Write the whole config twice at the start:
+    err = config.WriteConfig(kblob, resist, cipher)
+    if err != nil {
+        return
+    }
+
+    err = config.WriteConfig(kblob, resist, cipher)
+    if err != nil {
+        return
+    }
+
+    // Create the inner writers:
+    resistWriter, err := resist.NewWriter(kblob)
+    if err != nil {
+        return
+    }
+
+    cipherWriter, err := cipher.NewWriter(resistWriter, p[pIdx:]...)
+    if err != nil {
+        return
+    }
+
+    unblob = &KblobWriter{config, resist, cipher, kblob, resistWriter, cipherWriter}
+    return
 }
 

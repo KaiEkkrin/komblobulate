@@ -5,8 +5,6 @@ package komblobulate
 import (
     "bytes"
     "encoding/binary"
-    "errors"
-    "fmt"
     "io"
     )
 
@@ -33,7 +31,7 @@ func (c *RsConfig) WriteConfig(writer io.Writer) (err error) {
 
     encoded := buf.Bytes()
     if len(encoded) > ConfigSize {
-        return errors.New(fmt.Sprintf("Encoded config to %d bytes", len(encoded)))
+        panic("Bad rs config size")
     }
 
     _, err = writer.Write(append(encoded, make([]byte, ConfigSize - len(encoded))...))

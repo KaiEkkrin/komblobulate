@@ -7,8 +7,6 @@ package komblobulate
 import (
     "bytes"
     "encoding/binary"
-    "errors"
-    "fmt"
     "io"
     )
 
@@ -25,7 +23,7 @@ func (c *AeadConfig) WriteConfig(writer io.Writer) (err error) {
 
     encoded := buf.Bytes()
     if len(encoded) > ConfigSize {
-        return errors.New(fmt.Sprintf("Encoded config to %d bytes", len(encoded)))
+        panic("Bad aead config size")
     }
 
     _, err = writer.Write(append(encoded, make([]byte, ConfigSize - len(encoded))...))
@@ -42,14 +40,14 @@ func (c *AeadConfig) NewWriter(outer io.Writer, p ...interface{}) (inner io.Writ
     return nil, nil
 }
 
+func NewAeadConfig() (*AeadConfig, error) {
+    // TODO Generate the starting nonce, etc.
+    return nil, nil
+}
+
 func ReadAeadConfig(reader io.Reader) (*AeadConfig, error) {
     config := new(AeadConfig)
     err := binary.Read(reader, binary.LittleEndian, config)
     return config, err
-}
-
-func NewAeadConfig() (*AeadConfig, error) {
-    // TODO
-    return nil, nil
 }
 
