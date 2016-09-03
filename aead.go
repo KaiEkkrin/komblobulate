@@ -14,6 +14,26 @@ type AeadConfig struct {
     StartingNonce []byte
 }
 
+func (c *AeadConfig) ConfigEquals(other interface{}) bool {
+    if other == nil {
+        return false
+    } else if otherAead, ok := other.(*AeadConfig); ok {
+        if len(otherAead.StartingNonce) != len(c.StartingNonce) {
+            return false
+        }
+
+        for i := 0; i < len(c.StartingNonce); i++ {
+            if otherAead.StartingNonce[i] != c.StartingNonce[i] {
+                return false
+            }
+        }
+        
+        return true
+    } else {
+        return false
+    }
+}
+
 func (c *AeadConfig) WriteConfig(writer io.Writer) (err error) {
     buf := bytes.NewBuffer(make([]byte, 0, ConfigSize))
     err = binary.Write(buf, binary.LittleEndian, c)

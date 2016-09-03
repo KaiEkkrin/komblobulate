@@ -13,6 +13,14 @@ type Config struct {
     CipherType int
 }
 
+func (c *Config) ConfigEquals(other *Config) bool {
+    if other == nil {
+        return false
+    } else {
+        return *c == *other
+    }
+}
+
 func (c *Config) WriteConfig(writer io.Writer, resist KCodec, cipher KCodec) (err error) {
 
     buf := bytes.NewBuffer(make([]byte, 0, ConfigSize))
@@ -41,13 +49,14 @@ func (c *Config) WriteConfig(writer io.Writer, resist KCodec, cipher KCodec) (er
     return nil
 }
 
-func ReadConfig(reader io.ReadSeeker, offset int64) (config Config, resist KCodec, cipher KCodec, err error) {
+func ReadConfig(reader io.ReadSeeker, offset int64) (config *Config, resist KCodec, cipher KCodec, err error) {
     
     _, err = reader.Seek(offset, 0)
     if err != nil {
         return
     }
 
+    config = new(Config)
     err = binary.Read(reader, binary.LittleEndian, config)
     if err != nil {
         return

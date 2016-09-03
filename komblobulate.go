@@ -8,6 +8,7 @@
 package komblobulate
 
 import (
+    "errors"
     "io"
     )
 
@@ -19,12 +20,88 @@ const (
     CipherType_Aead = 1
     )
 
+// Given three things that might equal each other, finds the
+// value that occurs at least twice according to the equality
+// function, or nil if they all differ.
+func findAgreement(things [3]interface{}, equals func(interface{}, interface{}) bool) interface{} {
+    if things[0] != nil {
+        if equals(things[0], things[1]) || equals(things[0], things[2]) {
+            return things[0]
+        }
+    }
+
+    if things[1] != nil && equals(things[1], things[2]) {
+        return things[1]
+    }
+
+    return nil
+}
+
 // Given a reader of a kblobbed output, creates a reader of the
 // unblobbed contents.  The kblob itself will contain its
 // configuration.
-func NewReader(kblob io.ReadSeeker) (unblob io.Reader, err error) {
-    // TODO.
-    return nil, nil
+// The variable arguments will go to the cipher codec,
+// e.g. should contain the passphrase.
+func NewReader(kblob io.ReadSeeker, bloblen int64, p ...interface{}) (unblob io.Reader, err error) {
+
+    // The config is stored in three places -- twice at
+    // the beginning and once at the end.  Read out
+    // all three:
+    var configBlocks [3]interface{}
+    var resistBlocks [3]interface{}
+    var cipherBlocks [3]interface{}
+
+    configBlocks[0], resistBlocks[0], cipherBlocks[0], err = ReadConfig(kblob, 0)
+    if err != nil {
+        return
+    }
+
+    configBlocks[1], resistBlocks[1], cipherBlocks[1], err = ReadConfig(kblob, 3 * ConfigSize)
+    if err != nil {
+        return
+    }
+
+    configBlocks[2], resistBlocks[2], cipherBlocks[2], err = ReadConfig(kblob, bloblen - 3 * ConfigSize)
+    if err != nil {
+        return
+    }
+
+    config, ok := findAgreement(configBlocks, func(a interface{}, b interface{}) bool {
+        return a.(*Config).ConfigEquals(b.(*Config))
+    }).(*Config)
+    if !ok || config == nil {
+        err = errors.New("No config agreement")
+        return
+    }
+
+    kcodecequal := func(a interface{}, b interface{}) bool {
+        return a.(KCodec).ConfigEquals(b)
+    }
+
+    resist, ok := findAgreement(resistBlocks, kcodecequal).(KCodec)
+    if !ok || resist == nil {
+        err = errors.New("No resist agreement")
+        return
+    }
+
+    cipher, ok := findAgreement(cipherBlocks, kcodecequal).(KCodec)
+    if !ok || resist == nil {
+        err = errors.New("No cipher agreement")
+        return
+    }
+
+    unConfig, err := NewKblobReader(kblob, bloblen)
+    if err != nil {
+        return
+    }
+
+    unResist, err := resist.NewReader(unConfig)
+    if err != nil {
+        return
+    }
+
+    unblob, err = cipher.NewReader(unResist, p...)
+    return
 }
 
 // Given a writer of where the user wants the kblobbed output to

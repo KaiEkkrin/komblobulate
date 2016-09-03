@@ -22,6 +22,16 @@ type RsConfig struct {
     ParityPieceCount int
 }
 
+func (c *RsConfig) ConfigEquals(other interface{}) bool {
+    if other == nil {
+        return false
+    } else if otherRs, ok := other.(*RsConfig); ok {
+        return *otherRs == *c
+    } else {
+        return false
+    }
+}
+
 func (c *RsConfig) WriteConfig(writer io.Writer) (err error) {
     buf := bytes.NewBuffer(make([]byte, 0, ConfigSize))
     err = binary.Write(buf, binary.LittleEndian, c)

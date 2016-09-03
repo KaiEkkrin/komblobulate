@@ -13,6 +13,9 @@ const (
     )
 
 type KCodec interface {
+    // Checks for config equality.
+    ConfigEquals(other interface{}) bool
+
     // This *must* write ConfigSize bytes.
     WriteConfig(io.Writer) error
     

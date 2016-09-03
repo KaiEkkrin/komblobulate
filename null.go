@@ -20,6 +20,16 @@ func (w *NullWriteCloser) Close() error {
 
 type NullConfig struct {}
 
+func (c *NullConfig) ConfigEquals(other interface{}) bool {
+    if other == nil {
+        return false
+    } else if _, ok := other.(*NullConfig); ok {
+        return true
+    } else {
+        return false
+    }
+}
+
 func (c *NullConfig) WriteConfig(writer io.Writer) error {
     _, err := writer.Write(make([]byte, ConfigSize))
     return err
