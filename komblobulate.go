@@ -46,31 +46,24 @@ func NewReader(kblob io.ReadSeeker, bloblen int64, p ...interface{}) (unblob io.
 
     // The config is stored in three places -- twice at
     // the beginning and once at the end.  Read out
-    // all three:
+    // all three, ignoring errors so long as we manage
+    // to get agreement:
     var configBlocks [3]interface{}
     var resistBlocks [3]interface{}
     var cipherBlocks [3]interface{}
 
     configBlocks[0], resistBlocks[0], cipherBlocks[0], err = ReadConfig(kblob, 0)
-    if err != nil {
-        return
-    }
-
     configBlocks[1], resistBlocks[1], cipherBlocks[1], err = ReadConfig(kblob, 3 * ConfigSize)
-    if err != nil {
-        return
-    }
-
     configBlocks[2], resistBlocks[2], cipherBlocks[2], err = ReadConfig(kblob, bloblen - 3 * ConfigSize)
-    if err != nil {
-        return
-    }
 
     config, ok := findAgreement(configBlocks, func(a interface{}, b interface{}) bool {
         return a.(*Config).ConfigEquals(b.(*Config))
     }).(*Config)
+
     if !ok || config == nil {
-        err = errors.New("No config agreement")
+        if err == nil {
+            err = errors.New("No config agreement")
+        }
         return
     }
 
