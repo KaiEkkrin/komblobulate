@@ -13,11 +13,11 @@ import (
     )
 
 const (
-    ResistType_None = 0
-    ResistType_Rs = 1
+    ResistType_None = byte(0)
+    ResistType_Rs = byte(1)
 
-    CipherType_None = 0
-    CipherType_Aead = 1
+    CipherType_None = byte(0)
+    CipherType_Aead = byte(1)
     )
 
 // Given three things that might equal each other, finds the
@@ -113,7 +113,7 @@ func NewReader(kblob io.ReadSeeker, bloblen int64, p ...interface{}) (unblob io.
 // - rs wants three integers DataPieceSize, DataPieceCount,
 // ParityPieceCount
 // - aead wants a passphrase.
-func NewWriter(kblob io.Writer, resistType int, cipherType int, p ...interface{}) (unblob io.WriteCloser, err error) {
+func NewWriter(kblob io.Writer, resistType byte, cipherType byte, p ...interface{}) (unblob io.WriteCloser, err error) {
 
     pIdx := 0
 

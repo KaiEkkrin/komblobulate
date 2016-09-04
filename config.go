@@ -9,8 +9,8 @@ import (
     )
 
 type Config struct {
-    ResistType int
-    CipherType int
+    ResistType byte
+    CipherType byte
 }
 
 func (c *Config) ConfigEquals(other *Config) bool {
