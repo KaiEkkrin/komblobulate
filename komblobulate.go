@@ -42,6 +42,7 @@ func findAgreement(things [3]interface{}, equals func(interface{}, interface{}) 
 // configuration.
 // The variable arguments will go to the cipher codec,
 // e.g. should contain the passphrase.
+// TODO remove the "bloblen" argument, figure it out ourselves
 func NewReader(kblob io.ReadSeeker, bloblen int64, p ...interface{}) (unblob io.Reader, err error) {
 
     // The config is stored in three places -- twice at
@@ -88,12 +89,12 @@ func NewReader(kblob io.ReadSeeker, bloblen int64, p ...interface{}) (unblob io.
         return
     }
 
-    unResist, err := resist.NewReader(unConfig)
+    unResist, unResistLength, err := resist.NewReader(unConfig, int(bloblen) - 9 * ConfigSize)
     if err != nil {
         return
     }
 
-    unblob, err = cipher.NewReader(unResist, p...)
+    unblob, _, err = cipher.NewReader(unResist, unResistLength, p...)
     return
 }
 
@@ -105,7 +106,7 @@ func NewReader(kblob io.ReadSeeker, bloblen int64, p ...interface{}) (unblob io.
 // - a none config wants none
 // - rs wants three integers DataPieceSize, DataPieceCount,
 // ParityPieceCount
-// - aead wants a passphrase.
+// - aead wants a chunk size (int64) and a passphrase.
 func NewWriter(kblob io.Writer, resistType byte, cipherType byte, p ...interface{}) (unblob io.WriteCloser, err error) {
 
     pIdx := 0
@@ -145,9 +146,15 @@ func NewWriter(kblob io.Writer, resistType byte, cipherType byte, p ...interface
         cipher = &NullConfig{}
 
     case CipherType_Aead:
-        cipher, err = NewAeadConfig()
+        chunkSize, ok := p[pIdx].(int64)
+        pIdx++
+        if !ok {
+            panic("Bad Aead parameter")
+        }
+
+        cipher, err = NewAeadConfig(chunkSize)
         if err != nil {
-            return nil, err
+            panic(err.Error())
         }
 
     default:

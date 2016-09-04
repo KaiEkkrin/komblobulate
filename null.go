@@ -35,8 +35,8 @@ func (c *NullConfig) WriteConfig(writer io.Writer) error {
     return err
 }
 
-func (c *NullConfig) NewReader(outer io.Reader, p ...interface{}) (io.Reader, error) {
-    return outer, nil
+func (c *NullConfig) NewReader(outer io.Reader, outerLength int, p ...interface{}) (io.Reader, int, error) {
+    return outer, outerLength, nil
 }
 
 func (c *NullConfig) NewWriter(outer io.Writer, p ...interface{}) (io.WriteCloser, error) {

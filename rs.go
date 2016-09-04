@@ -48,9 +48,9 @@ func (c *RsConfig) WriteConfig(writer io.Writer) (err error) {
     return err
 }
 
-func (c *RsConfig) NewReader(outer io.Reader, p ...interface{}) (inner io.Reader, err error) {
+func (c *RsConfig) NewReader(outer io.Reader, outerLength int, p ...interface{}) (inner io.Reader, innerLength int, err error) {
     // TODO TODO
-    return nil, nil
+    return nil, 0, nil
 }
 
 func (c *RsConfig) NewWriter(outer io.Writer, p ...interface{}) (inner io.WriteCloser, err error) {
