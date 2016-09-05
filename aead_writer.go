@@ -71,7 +71,7 @@ func (a *AeadWriter) Encrypt() {
             sealed = a.Aead.Seal(sealed, nonce, chunk[:n], ad)
 
             // Write all that to the output:
-            n, err = a.CipherText.Write(sealed)
+            n, err = WriteAllOf(a.CipherText, sealed, 0)
             if err != nil {
                 return
             }

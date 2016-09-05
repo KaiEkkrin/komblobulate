@@ -27,7 +27,7 @@ type AeadConfig struct {
     // The data that we write to the
     // underlying stream will consist of:
     // - 12 bytes nonce
-    // - plaintext
+    // - ciphertext
     ChunkSize int64
 
     Salt [8]byte
@@ -82,7 +82,7 @@ func (c *AeadConfig) WriteConfig(writer io.Writer) (err error) {
         panic("Bad aead config size")
     }
 
-    _, err = writer.Write(append(encoded, make([]byte, ConfigSize - len(encoded))...))
+    _, err = WriteAllOf(writer, append(encoded, make([]byte, ConfigSize - len(encoded))...), 0)
     return err
 }
 

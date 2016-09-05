@@ -34,7 +34,7 @@ func (c *Config) WriteConfig(writer io.Writer, resist KCodec, cipher KCodec) (er
         panic("Bad base config size")
     }
 
-    _, err = writer.Write(append(encoded, make([]byte, ConfigSize - len(encoded))...))
+    _, err = WriteAllOf(writer, append(encoded, make([]byte, ConfigSize - len(encoded))...), 0)
 
     err = resist.WriteConfig(writer)
     if err != nil {

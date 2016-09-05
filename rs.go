@@ -44,7 +44,7 @@ func (c *RsConfig) WriteConfig(writer io.Writer) (err error) {
         panic("Bad rs config size")
     }
 
-    _, err = writer.Write(append(encoded, make([]byte, ConfigSize - len(encoded))...))
+    _, err = WriteAllOf(writer, append(encoded, make([]byte, ConfigSize - len(encoded))...), 0)
     return err
 }
 

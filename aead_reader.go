@@ -82,7 +82,7 @@ func (a *AeadReader) Decrypt(bufIdx int) {
             sealed = sealed[:textLeft]
         }
             
-        n, err = a.CipherText.Read(sealed)
+        n, err = ReadAllOf(a.CipherText, sealed, 0)
         if err != nil {
             return
         }

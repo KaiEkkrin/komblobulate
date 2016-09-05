@@ -31,7 +31,7 @@ func (c *NullConfig) ConfigEquals(other interface{}) bool {
 }
 
 func (c *NullConfig) WriteConfig(writer io.Writer) error {
-    _, err := writer.Write(make([]byte, ConfigSize))
+    _, err := WriteAllOf(writer, make([]byte, ConfigSize), 0)
     return err
 }
 
