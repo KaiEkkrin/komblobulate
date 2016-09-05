@@ -16,6 +16,11 @@ import (
     "golang.org/x/crypto/pbkdf2"
     )
 
+const (
+    NonceSize = 12
+    PreludeSize = 16
+    )
+
 type AeadConfig struct {
     // This is the size of the chunks of actual plaintext that
     // we encrypt in one go.

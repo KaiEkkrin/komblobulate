@@ -4,7 +4,7 @@ import (
     "bytes"
     "crypto/cipher"
     "crypto/rand"
-    "errors"
+    "fmt"
     "io"
     )
 
@@ -24,6 +24,17 @@ type AeadWriter struct {
     Finished chan error
 }
 
+func FillRandom(buf []byte) {
+    n, err := rand.Read(buf)
+    if err != nil {
+        panic(err.Error())
+    }
+
+    if err == nil && n != len(buf) {
+        panic(fmt.Sprintf("Tried to read %d random bytes, got %d", len(buf), n))
+    }
+}
+
 // The encryption goroutine:
 func (a *AeadWriter) Encrypt() {
     var err error
@@ -31,8 +42,8 @@ func (a *AeadWriter) Encrypt() {
         a.Finished <- err
     }()
 
-    nonce := make([]byte, 12)
-    chunk := make([]byte, a.Config.ChunkSize)
+    nonce := make([]byte, NonceSize)
+    chunk := make([]byte, PreludeSize + a.Config.ChunkSize)
     var sealed, ad []byte
 
     more := true
@@ -43,24 +54,21 @@ func (a *AeadWriter) Encrypt() {
         } else {
 
             // Generate a new nonce:
-            n, err := rand.Read(nonce)
-            if err == nil && n != len(nonce) {
-                err = errors.New("Read bad nonce length")
-            }
-
-            if err != nil {
-                return
-            }
+            FillRandom(nonce)
 
             // Write it first of all:
-            n, err = a.CipherText.Write(nonce)
+            var n int
+            n, err = WriteAllOf(a.CipherText, nonce, 0)
             if err != nil {
                 return
             }
+
+            // Make the prelude for the next chunk:
+            FillRandom(chunk[:PreludeSize])
 
             // Pull as much ciphertext as I can, up to a max
             // of the chunk size:
-            n, err = a.Bufs[readyBuf].Read(chunk)
+            n, err = a.Bufs[readyBuf].Read(chunk[PreludeSize:])
             if err != nil {
                 return
             }
@@ -68,7 +76,7 @@ func (a *AeadWriter) Encrypt() {
             // Seal it up.
             // TODO Do I want nonzero additional data?
             sealed = sealed[:0]
-            sealed = a.Aead.Seal(sealed, nonce, chunk[:n], ad)
+            sealed = a.Aead.Seal(sealed, nonce, chunk[:(n + PreludeSize)], ad)
 
             // Write all that to the output:
             n, err = WriteAllOf(a.CipherText, sealed, 0)

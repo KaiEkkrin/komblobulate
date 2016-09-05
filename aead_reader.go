@@ -52,22 +52,22 @@ func (a *AeadReader) Decrypt(bufIdx int) {
     // Keep track of how much ciphertext we've read:
     textRead := 0
 
-    nonce := make([]byte, 12)
-    sealed := make([]byte, a.Config.ChunkSize + ExpansionAmount)
-    chunk := make([]byte, a.Config.ChunkSize)
+    nonce := make([]byte, NonceSize)
+    sealed := make([]byte, a.Config.ChunkSize + PreludeSize + ExpansionAmount)
+    chunk := make([]byte, a.Config.ChunkSize + PreludeSize)
     var ad []byte
 
     for {
 
         // Read the nonce:
         var n int
-        n, err = a.CipherText.Read(nonce)
+        n, err = ReadAllOf(a.CipherText, nonce, 0)
         if err != nil {
             return
         }
 
         textRead += n
-        if n != 12 {
+        if n != NonceSize {
             err = errors.New("Truncated nonce")
             return
         }
@@ -95,8 +95,11 @@ func (a *AeadReader) Decrypt(bufIdx int) {
             return
         }
 
+        // When writing to the buf, skip the prelude,
+        // which was just there out of an abundance of
+        // crypto caution
         a.Bufs[bufIdx].Reset()
-        n, err = a.Bufs[bufIdx].Write(chunk)
+        n, err = a.Bufs[bufIdx].Write(chunk[PreludeSize:])
         if err != nil {
             return
         }
@@ -110,7 +113,7 @@ func (a *AeadReader) ExpectedLength() int {
     // A ciphertext chunk is our chunk size, plus the nonce size,
     // plus the expansion amount:
     plainChunkSize := int(a.Config.ChunkSize)
-    cipherChunkSize := plainChunkSize + ExpansionAmount + 12
+    cipherChunkSize := plainChunkSize + PreludeSize + ExpansionAmount + NonceSize
 
     // Work out how many of these we would theoretically
     // be reading.
@@ -122,7 +125,7 @@ func (a *AeadReader) ExpectedLength() int {
     } else {
         // The leftover will have the full nonce and expansion
         // amounts, but only whatever else fits within:
-        return cipherChunkCount * plainChunkSize + cipherChunkLeftOver - ExpansionAmount - 12
+        return cipherChunkCount * plainChunkSize + cipherChunkLeftOver - PreludeSize - ExpansionAmount - 12
     }
 }
 
