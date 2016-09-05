@@ -1,27 +1,19 @@
 package komblobulate
 
 import (
-    "bytes"
     "crypto/cipher"
     "crypto/rand"
     "fmt"
     "io"
     )
 
-type AeadWriter struct {
+type AeadWriterWorker struct {
     Config *AeadConfig
     Aead cipher.AEAD
 
     CipherText io.Writer
 
-    // We'll run a goroutine to deal with sealing up
-    // the bytes fed into us, and message it with
-    // whichever of our two buffers is ready.  -1
-    // tells it to stop.
-    Bufs [2]bytes.Buffer
-    CurrentInputBuf int
-    Ready chan int
-    Finished chan error
+    Nonce, Chunk, Sealed, Ad []byte
 }
 
 func FillRandom(buf []byte) {
@@ -35,119 +27,50 @@ func FillRandom(buf []byte) {
     }
 }
 
-// The encryption goroutine:
-func (a *AeadWriter) Encrypt() {
-    var err error
-    defer func() {
-        a.Finished <- err
-    }()
-
-    nonce := make([]byte, NonceSize)
-    chunk := make([]byte, PreludeSize + a.Config.ChunkSize)
-    var sealed, ad []byte
-
-    more := true
-    for more {
-        readyBuf := <- a.Ready
-        if readyBuf == -1 {
-            more = false
-        } else {
-
-            // Generate a new nonce:
-            FillRandom(nonce)
-
-            // Write it first of all:
-            var n int
-            n, err = WriteAllOf(a.CipherText, nonce, 0)
-            if err != nil {
-                return
-            }
-
-            // Make the prelude for the next chunk:
-            FillRandom(chunk[:PreludeSize])
-
-            // Pull as much ciphertext as I can, up to a max
-            // of the chunk size:
-            n, err = a.Bufs[readyBuf].Read(chunk[PreludeSize:])
-            if err != nil {
-                return
-            }
-
-            // Seal it up.
-            // TODO Do I want nonzero additional data?
-            sealed = sealed[:0]
-            sealed = a.Aead.Seal(sealed, nonce, chunk[:(n + PreludeSize)], ad)
-
-            // Write all that to the output:
-            n, err = WriteAllOf(a.CipherText, sealed, 0)
-            if err != nil {
-                return
-            }
-
-            // I finished with that buffer:
-            a.Bufs[readyBuf].Reset()
-        }
-    }
+func (a *AeadWriterWorker) ChunkSize() int {
+    return int(a.Config.ChunkSize)
 }
 
-func (a *AeadWriter) Write(p []byte) (n int, err error) {
-    // TODO Should I enforce thread safety by having this
-    // in another goroutine?
-    for len(p) > 0 {
-        // Fill the current input buf up to the chunk size:
-        lenToWrite := int(a.Config.ChunkSize) - a.Bufs[a.CurrentInputBuf].Len()
-        if lenToWrite > len(p) {
-            lenToWrite = len(p)
-        }
+func (a *AeadWriterWorker) Ready(getPlain func([]byte) (int, error)) (err error) {
 
-        toWrite := p[:lenToWrite]
-        p = p[lenToWrite:]
+    // Generate a new nonce:
+    FillRandom(a.Nonce)
 
-        var written int
-        written, err = a.Bufs[a.CurrentInputBuf].Write(toWrite)
-        n += written
-        if err != nil {
-            return
-        }
-
-        if written < lenToWrite {
-            p = append(toWrite[written:], p...)
-        }
-
-        if a.Bufs[a.CurrentInputBuf].Len() == int(a.Config.ChunkSize) {
-            // Write this one and roll over to the other
-            // input buffer:
-            a.Ready <- a.CurrentInputBuf
-            a.CurrentInputBuf = 1 - a.CurrentInputBuf 
-        }
+    // Write it first of all:
+    var n int
+    n, err = WriteAllOf(a.CipherText, a.Nonce, 0)
+    if err != nil {
+        return
     }
 
+    // Make the prelude for the next chunk:
+    FillRandom(a.Chunk[:PreludeSize])
+
+    // Read the next chunk of ciphertext:
+    n, err = getPlain(a.Chunk[PreludeSize:])
+    if err != nil {
+        return
+    }
+
+    // Seal it up.
+    // TODO Do I want nonzero additional data?
+    a.Sealed = a.Sealed[:0]
+    a.Sealed = a.Aead.Seal(a.Sealed, a.Nonce, a.Chunk[:(n + PreludeSize)], a.Ad)
+
+    // Write all that to the output:
+    n, err = WriteAllOf(a.CipherText, a.Sealed, 0)
     return
 }
 
-func (a *AeadWriter) Close() error {
-    // Write whatever's left over in the current input buf:
-    if a.Bufs[a.CurrentInputBuf].Len() > 0 {
-        a.Ready <- a.CurrentInputBuf
-        a.CurrentInputBuf = 1 - a.CurrentInputBuf
-    }
-
-    // Tell that goroutine to finish:
-    a.Ready <- -1
-    return <- a.Finished
-}
-
-func NewAeadWriter(config *AeadConfig, aead cipher.AEAD, outer io.Writer) *AeadWriter {
-    writer := &AeadWriter{
+func NewAeadWriter(config *AeadConfig, aead cipher.AEAD, outer io.Writer) *WorkerWriter {
+    worker := &AeadWriterWorker{
         Config: config,
         Aead: aead,
         CipherText: outer,
-        CurrentInputBuf: 0,
-        Ready: make(chan int),
-        Finished: make(chan error, 1),
+        Nonce: make([]byte, NonceSize),
+        Chunk: make([]byte, PreludeSize + config.ChunkSize),
     }
 
-    go writer.Encrypt()
-    return writer
+    return NewWorkerWriter(worker)
 }
 
