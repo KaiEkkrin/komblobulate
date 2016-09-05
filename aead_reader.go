@@ -1,7 +1,6 @@
 package komblobulate
 
 import (
-    "bytes"
     "crypto/cipher"
     "errors"
     "io"
@@ -13,103 +12,20 @@ const (
     ExpansionAmount = 16
     )
 
-type AeadReader struct {
+type AeadReaderWorker struct {
     Config *AeadConfig
     Aead cipher.AEAD
 
     CipherText io.Reader
     CipherTextLength int
 
-    // This works similarly to the writer,
-    // but in this case, it's the goroutine that will
-    // send the buf index to Ready when a buf is
-    // ready.  CurrentInputBuf is the current *plaintext*
-    // input buf that Read() should be reading from.
-    // We don't have a close equivalent, but we send -1
-    // when finished.
-    Bufs [2]bytes.Buffer
-    CurrentInputBuf int
-    Ready chan int
+    Nonce, Sealed, Chunk, Ad []byte
+
+    // This tracks how much ciphertext we've read
+    TextRead int
 }
 
-// The decryption goroutine.
-// bufIdx should track the one that Read() *isn't*
-// currently reading from.
-func (a *AeadReader) Decrypt(bufIdx int) {
-    var err error
-    defer func() {
-        // I have no exit route for this!
-        if err != nil && err != io.EOF {
-            panic(err.Error())
-        }
-
-        // Forever indicate we've finished on request:
-        for {
-            a.Ready <- -1
-        }
-    }()
-
-    // Keep track of how much ciphertext we've read:
-    textRead := 0
-
-    nonce := make([]byte, NonceSize)
-    sealed := make([]byte, a.Config.ChunkSize + PreludeSize + ExpansionAmount)
-    chunk := make([]byte, a.Config.ChunkSize + PreludeSize)
-    var ad []byte
-
-    for {
-
-        // Read the nonce:
-        var n int
-        n, err = ReadAllOf(a.CipherText, nonce, 0)
-        if err != nil {
-            return
-        }
-
-        textRead += n
-        if n != NonceSize {
-            err = errors.New("Truncated nonce")
-            return
-        }
-
-        // Work out how much ciphertext there is left,
-        // and only read a truncated section 
-        textLeft := a.CipherTextLength - textRead
-        if textLeft <= 0 {
-            err = io.EOF
-            return
-        } else if textLeft < len(sealed) {
-            sealed = sealed[:textLeft]
-        }
-            
-        n, err = ReadAllOf(a.CipherText, sealed, 0)
-        if err != nil {
-            return
-        }
-
-        textRead += n
-
-        chunk = chunk[:0]
-        chunk, err = a.Aead.Open(chunk, nonce, sealed, ad)
-        if err != nil {
-            return
-        }
-
-        // When writing to the buf, skip the prelude,
-        // which was just there out of an abundance of
-        // crypto caution
-        a.Bufs[bufIdx].Reset()
-        n, err = a.Bufs[bufIdx].Write(chunk[PreludeSize:])
-        if err != nil {
-            return
-        }
-
-        a.Ready <- bufIdx
-        bufIdx = 1 - bufIdx
-    }
-}
-
-func (a *AeadReader) ExpectedLength() int {
+func (a *AeadReaderWorker) ExpectedLength() int {
     // A ciphertext chunk is our chunk size, plus the nonce size,
     // plus the expansion amount:
     plainChunkSize := int(a.Config.ChunkSize)
@@ -125,36 +41,67 @@ func (a *AeadReader) ExpectedLength() int {
     } else {
         // The leftover will have the full nonce and expansion
         // amounts, but only whatever else fits within:
-        return cipherChunkCount * plainChunkSize + cipherChunkLeftOver - PreludeSize - ExpansionAmount - 12
+        return cipherChunkCount * plainChunkSize + cipherChunkLeftOver - PreludeSize - ExpansionAmount - NonceSize
     }
 }
 
-func (a *AeadReader) Read(p []byte) (n int, err error) {
-    // If we've run out of data, wait for more:
-    if a.Bufs[a.CurrentInputBuf].Len() == 0 {
-        a.CurrentInputBuf = <- a.Ready
+func (a *AeadReaderWorker) Ready(putChunk func([]byte) error) (err error) {
+
+    // Read the nonce:
+    var n int
+    n, err = ReadAllOf(a.CipherText, a.Nonce, 0)
+    if err != nil {
+        return
+    }
+
+    a.TextRead += n
+    if n != NonceSize {
+        err = errors.New("Truncated nonce")
+        return
+    }
+
+    // Work out how much ciphertext there is left,
+    // and only read a truncated section 
+    textLeft := a.CipherTextLength - a.TextRead
+    if textLeft <= 0 {
+        err = io.EOF
+        return
+    } else if textLeft < len(a.Sealed) {
+        a.Sealed = a.Sealed[:textLeft]
     }
         
-    // The end-of-file condition:
-    if a.CurrentInputBuf == -1 {
-        return 0, io.EOF
+    n, err = ReadAllOf(a.CipherText, a.Sealed, 0)
+    if err != nil {
+        return
     }
 
-    // Read however much is in the buffer:
-    return a.Bufs[a.CurrentInputBuf].Read(p)
+    a.TextRead += n
+
+    a.Chunk = a.Chunk[:0]
+    a.Chunk, err = a.Aead.Open(a.Chunk, a.Nonce, a.Sealed, a.Ad)
+    if err != nil {
+        return
+    }
+
+    // When writing to the buf, skip the prelude,
+    // which was just there out of an abundance of
+    // crypto caution
+    err = putChunk(a.Chunk[PreludeSize:])
+    return
 }
 
-func NewAeadReader(config *AeadConfig, aead cipher.AEAD, outer io.Reader, outerLength int) *AeadReader {
-    reader := &AeadReader{
+func NewAeadReader(config *AeadConfig, aead cipher.AEAD, outer io.Reader, outerLength int) *WorkerReader {
+    worker := &AeadReaderWorker{
         Config: config,
         Aead: aead,
         CipherText: outer,
         CipherTextLength: outerLength,
-        CurrentInputBuf: 0,
-        Ready: make(chan int),
+        Nonce: make([]byte, NonceSize),
+        Sealed: make([]byte, config.ChunkSize + PreludeSize + ExpansionAmount),
+        Chunk: make([]byte, config.ChunkSize + PreludeSize),
+        TextRead: 0,
     }
 
-    go reader.Decrypt(1)
-    return reader
+    return NewWorkerReader(worker)
 }
 

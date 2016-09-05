@@ -8,9 +8,12 @@ import (
     "io"
     )
 
+const (
+    CrcSize = 4
+    )
+
 type RsConfig struct {
     // The byte size of each piece, minus the CRC
-    // (which is 4 bytes).
     DataPieceSize int
 
     // The number of data pieces in each separate
