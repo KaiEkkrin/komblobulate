@@ -23,6 +23,11 @@ type RsConfig struct {
     // The number of parity pieces in each separate
     // RS matrix.
     ParityPieceCount int
+
+    // The total number of data bytes contained inside the
+    // reed-solomon encoding.  (The encoded data may have
+    // been padded at the end.)
+    TotalInnerLength int64
 }
 
 func (c *RsConfig) ConfigEquals(other interface{}) bool {
@@ -51,9 +56,9 @@ func (c *RsConfig) WriteConfig(writer io.Writer) (err error) {
     return err
 }
 
-func (c *RsConfig) NewReader(outer io.Reader, outerLength int, p ...interface{}) (inner io.Reader, innerLength int, err error) {
+func (c *RsConfig) NewReader(outer io.Reader, outerLength int64, p ...interface{}) (inner io.Reader, innerLength int64, err error) {
     // TODO TODO
-    return nil, 0, nil
+    return nil, c.TotalInnerLength, nil
 }
 
 func (c *RsConfig) NewWriter(outer io.Writer, p ...interface{}) (inner io.WriteCloser, err error) {

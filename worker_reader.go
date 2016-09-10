@@ -11,10 +11,6 @@ import (
     )
 
 type ReaderWorker interface {
-    // The expected total length we will read from
-    // the underlying reader.
-    ExpectedLength() int
-
     // Called whenever we're ready to receive a chunk,
     // with a function that will write the chunk
     // into the read buffer.
@@ -53,10 +49,6 @@ func (w *WorkerReader) Decode(bufIdx int) {
         w.Ready <- bufIdx
         bufIdx = 1 - bufIdx
     }
-}
-
-func (w *WorkerReader) ExpectedLength() int {
-    return w.Worker.ExpectedLength()
 }
 
 func (w *WorkerReader) Read(p []byte) (n int, err error) {

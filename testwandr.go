@@ -22,7 +22,7 @@ type DuringTest interface {
     AtEnd(*testing.T, []byte, []byte)
 }
 
-func writeTestData(source io.Reader, dest io.Writer, resistType, cipherType byte, p ...interface{}) (int64, error) {
+func writeTestData(source io.Reader, dest io.WriteSeeker, resistType, cipherType byte, p ...interface{}) (int64, error) {
     writer, err := NewWriter(dest, resistType, cipherType, p...)
     if err != nil {
         return 0, err

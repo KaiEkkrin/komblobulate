@@ -91,7 +91,7 @@ func (c *AeadConfig) WriteConfig(writer io.Writer) (err error) {
     return err
 }
 
-func (c *AeadConfig) NewReader(outer io.Reader, outerLength int, p ...interface{}) (inner io.Reader, innerLength int, err error) {
+func (c *AeadConfig) NewReader(outer io.Reader, outerLength int64, p ...interface{}) (inner io.Reader, innerLength int64, err error) {
 
     var aead cipher.AEAD
 
@@ -112,7 +112,9 @@ func (c *AeadConfig) NewReader(outer io.Reader, outerLength int, p ...interface{
     }
 
     reader := NewAeadReader(c, aead, outer, outerLength)
-    return reader, reader.ExpectedLength(), nil
+
+    // The inner length isn't actually used, thus:
+    return reader, -1, nil
 }
 
 func (c *AeadConfig) NewWriter(outer io.Writer, p ...interface{}) (inner io.WriteCloser, err error) {

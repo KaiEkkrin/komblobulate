@@ -109,6 +109,10 @@ func (w *WorkerWriter) Close() error {
     return <- w.Finished
 }
 
+func (w *WorkerWriter) UpdateConfig(config KCodec) {
+    w.UpdateConfig(config)
+}
+
 func NewWorkerWriter(worker WriterWorker) *WorkerWriter {
     writer := &WorkerWriter{
         Worker: worker,

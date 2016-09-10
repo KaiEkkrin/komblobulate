@@ -89,7 +89,7 @@ func NewReader(kblob io.ReadSeeker, bloblen int64, p ...interface{}) (unblob io.
         return
     }
 
-    unResist, unResistLength, err := resist.NewReader(unConfig, int(bloblen) - 9 * ConfigSize)
+    unResist, unResistLength, err := resist.NewReader(unConfig, bloblen - int64(9 * ConfigSize))
     if err != nil {
         return
     }
@@ -107,7 +107,7 @@ func NewReader(kblob io.ReadSeeker, bloblen int64, p ...interface{}) (unblob io.
 // - rs wants three integers DataPieceSize, DataPieceCount,
 // ParityPieceCount
 // - aead wants a chunk size (int64) and a passphrase.
-func NewWriter(kblob io.Writer, resistType byte, cipherType byte, p ...interface{}) (unblob io.WriteCloser, err error) {
+func NewWriter(kblob io.WriteSeeker, resistType byte, cipherType byte, p ...interface{}) (unblob io.WriteCloser, err error) {
 
     pIdx := 0
 
@@ -135,7 +135,7 @@ func NewWriter(kblob io.Writer, resistType byte, cipherType byte, p ...interface
             panic("Bad Rs parameter")
         }
 
-        resist = &RsConfig{dataPieceSize, dataPieceCount, parityPieceCount}
+        resist = &RsConfig{dataPieceSize, dataPieceCount, parityPieceCount, 0}
 
     default:
         panic("Bad resist type")

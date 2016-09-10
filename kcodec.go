@@ -25,7 +25,7 @@ type KCodec interface {
     // Accepts codec-specific arbitrary parameters (e.g.
     // an encryption key for aead).  We also require the
     // length of the data available from the reader.
-    NewReader(io.Reader, int, ...interface{}) (io.Reader, int, error)
+    NewReader(io.Reader, int64, ...interface{}) (io.Reader, int64, error)
 
     // Wraps a writer in a writer that decodes this kcodec.
     NewWriter(io.Writer, ...interface{}) (io.WriteCloser, error)

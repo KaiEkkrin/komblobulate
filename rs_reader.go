@@ -1,0 +1,112 @@
+package komblobulate
+
+import (
+    "hash/crc32"
+    "io"
+    "github.com/klauspost/reedsolomon"
+    )
+
+type RsReaderWorker struct {
+    Config *RsConfig
+
+    ResistText io.Reader
+
+    Pieces [][]byte
+    PieceNum int
+    MissingPieces int
+
+    // This tracks how much data we've decoded
+    InnerLengthRead int64
+
+    CrcTab *crc32.Table
+    Enc reedsolomon.Encoder
+}
+
+func (r *RsReaderWorker) Ready(putChunk func([]byte) error) (err error) {
+
+    // Read the next chunk:
+    _, err = ReadAllOf(r.ResistText, r.Pieces[r.PieceNum], 0)
+    if err != nil {
+        return
+    }
+
+    // Verify its checksum.
+    writtenChecksum := uint32(r.Pieces[r.PieceNum][r.Config.DataPieceSize])
+    writtenChecksum |= uint32(r.Pieces[r.PieceNum][r.Config.DataPieceSize + 1] << 8)
+    writtenChecksum |= uint32(r.Pieces[r.PieceNum][r.Config.DataPieceSize + 2] << 16)
+    writtenChecksum |= uint32(r.Pieces[r.PieceNum][r.Config.DataPieceSize + 3] << 24)
+
+    calcChecksum := crc32.Checksum(r.Pieces[r.PieceNum][:r.Config.DataPieceSize], r.CrcTab)
+    if calcChecksum != writtenChecksum {
+        // This piece isn't valid.  Drop it; we'll use
+        // the reed-solomon encoding to reconstruct it,
+        // hopefully.
+        r.MissingPieces += 1
+        r.Pieces[r.PieceNum] = nil
+    }
+
+    r.PieceNum += 1
+    if r.PieceNum == r.Config.DataPieceCount {
+
+        // Reconstruct any missing pieces:
+        if r.MissingPieces > 0 {
+            err = r.Enc.Reconstruct(r.Pieces)
+            if err != nil {
+                return
+            }
+        }
+
+        // Push the data pieces into the next tier
+        // of reading:
+        for i := 0; i < r.Config.DataPieceCount; i++ {
+            // The inner data will have been padded to fit
+            // the final reed-solomon matrix; track this
+            // and drop the final padding
+            pieceLength := int64(r.Config.DataPieceSize)
+            if (r.InnerLengthRead + pieceLength) > r.Config.TotalInnerLength {
+                pieceLength = r.Config.TotalInnerLength - r.InnerLengthRead
+            }
+
+            if pieceLength > 0 {
+                err = putChunk(r.Pieces[i][:pieceLength])
+                if err != nil {
+                    return
+                }
+            }
+
+            r.InnerLengthRead += pieceLength
+        }
+
+        // Reset things for the next set of pieces:
+        r.MissingPieces = 0
+        r.PieceNum = 0
+    }
+
+    return
+}
+
+func NewRsReader(config *RsConfig, outer io.Reader) *WorkerReader {
+    enc, err := reedsolomon.New(config.DataPieceCount, config.ParityPieceCount)
+    if err != nil {
+        panic(err.Error())
+    }
+
+    pieces := make([][]byte, config.DataPieceCount + config.ParityPieceCount)
+    for i := 0; i < (config.DataPieceCount + config.ParityPieceCount); i++ {
+        pieces[i] = make([]byte, config.DataPieceSize + 4) // 4 checksum bytes
+    }
+
+    worker := &RsReaderWorker{
+        Config: config,
+        ResistText: outer,
+        Pieces: pieces,
+        PieceNum: 0,
+        MissingPieces: 0,
+        InnerLengthRead: 0,
+        CrcTab: crc32.MakeTable(crc32.Castagnoli),
+        Enc: enc,
+    }
+
+    return NewWorkerReader(worker)
+}
+

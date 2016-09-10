@@ -17,32 +17,12 @@ type AeadReaderWorker struct {
     Aead cipher.AEAD
 
     CipherText io.Reader
-    CipherTextLength int
+    CipherTextLength int64
 
     Nonce, Sealed, Chunk, Ad []byte
 
     // This tracks how much ciphertext we've read
-    TextRead int
-}
-
-func (a *AeadReaderWorker) ExpectedLength() int {
-    // A ciphertext chunk is our chunk size, plus the nonce size,
-    // plus the expansion amount:
-    plainChunkSize := int(a.Config.ChunkSize)
-    cipherChunkSize := plainChunkSize + PreludeSize + ExpansionAmount + NonceSize
-
-    // Work out how many of these we would theoretically
-    // be reading.
-    cipherChunkCount := a.CipherTextLength / cipherChunkSize
-    cipherChunkLeftOver := a.CipherTextLength % cipherChunkSize
-
-    if cipherChunkLeftOver == 0 {
-        return cipherChunkCount * plainChunkSize
-    } else {
-        // The leftover will have the full nonce and expansion
-        // amounts, but only whatever else fits within:
-        return cipherChunkCount * plainChunkSize + cipherChunkLeftOver - PreludeSize - ExpansionAmount - NonceSize
-    }
+    TextRead int64
 }
 
 func (a *AeadReaderWorker) Ready(putChunk func([]byte) error) (err error) {
@@ -54,7 +34,7 @@ func (a *AeadReaderWorker) Ready(putChunk func([]byte) error) (err error) {
         return
     }
 
-    a.TextRead += n
+    a.TextRead += int64(n)
     if n != NonceSize {
         err = errors.New("Truncated nonce")
         return
@@ -62,11 +42,11 @@ func (a *AeadReaderWorker) Ready(putChunk func([]byte) error) (err error) {
 
     // Work out how much ciphertext there is left,
     // and only read a truncated section 
-    textLeft := a.CipherTextLength - a.TextRead
+    textLeft := a.CipherTextLength - int64(a.TextRead)
     if textLeft <= 0 {
         err = io.EOF
         return
-    } else if textLeft < len(a.Sealed) {
+    } else if textLeft < int64(len(a.Sealed)) {
         a.Sealed = a.Sealed[:textLeft]
     }
         
@@ -75,7 +55,7 @@ func (a *AeadReaderWorker) Ready(putChunk func([]byte) error) (err error) {
         return
     }
 
-    a.TextRead += n
+    a.TextRead += int64(n)
 
     a.Chunk = a.Chunk[:0]
     a.Chunk, err = a.Aead.Open(a.Chunk, a.Nonce, a.Sealed, a.Ad)
@@ -90,7 +70,7 @@ func (a *AeadReaderWorker) Ready(putChunk func([]byte) error) (err error) {
     return
 }
 
-func NewAeadReader(config *AeadConfig, aead cipher.AEAD, outer io.Reader, outerLength int) *WorkerReader {
+func NewAeadReader(config *AeadConfig, aead cipher.AEAD, outer io.Reader, outerLength int64) *WorkerReader {
     worker := &AeadReaderWorker{
         Config: config,
         Aead: aead,

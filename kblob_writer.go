@@ -11,7 +11,7 @@ type KblobWriter struct {
     Resist KCodec
     Cipher KCodec
 
-    OuterWriter io.Writer
+    OuterWriter io.WriteSeeker
     ResistWriter io.WriteCloser
     CipherWriter io.WriteCloser
 }
@@ -32,6 +32,23 @@ func (kb *KblobWriter) Close() (err error) {
     }
 
     // Write a final copy of the config at the end:
+    err = kb.Config.WriteConfig(kb.OuterWriter, kb.Resist, kb.Cipher)
+    if err != nil {
+        return
+    }
+
+    // Rewrite the copies of the config at the start, since it
+    // may have been changed during the write process:
+    _, err = kb.OuterWriter.Seek(0, 0)
+    if err != nil {
+        return
+    }
+
+    err = kb.Config.WriteConfig(kb.OuterWriter, kb.Resist, kb.Cipher)
+    if err != nil {
+        return
+    }
+
     err = kb.Config.WriteConfig(kb.OuterWriter, kb.Resist, kb.Cipher)
     return
 }
