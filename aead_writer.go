@@ -62,6 +62,11 @@ func (a *AeadWriterWorker) Ready(getPlain func([]byte) (int, error)) (err error)
     return
 }
 
+func (a *AeadWriterWorker) Close() error {
+    // Nothing to do, we don't buffer internally.
+    return nil
+}
+
 func NewAeadWriter(config *AeadConfig, aead cipher.AEAD, outer io.Writer) *WorkerWriter {
     worker := &AeadWriterWorker{
         Config: config,

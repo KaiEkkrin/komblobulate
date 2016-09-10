@@ -14,15 +14,15 @@ const (
 
 type RsConfig struct {
     // The byte size of each piece, minus the CRC
-    DataPieceSize int
+    DataPieceSize int32
 
     // The number of data pieces in each separate
     // RS matrix.
-    DataPieceCount int
+    DataPieceCount int8
 
     // The number of parity pieces in each separate
     // RS matrix.
-    ParityPieceCount int
+    ParityPieceCount int8
 
     // The total number of data bytes contained inside the
     // reed-solomon encoding.  (The encoded data may have
@@ -57,13 +57,11 @@ func (c *RsConfig) WriteConfig(writer io.Writer) (err error) {
 }
 
 func (c *RsConfig) NewReader(outer io.Reader, outerLength int64, p ...interface{}) (inner io.Reader, innerLength int64, err error) {
-    // TODO TODO
-    return nil, c.TotalInnerLength, nil
+    return NewRsReader(c, outer), c.TotalInnerLength, nil
 }
 
 func (c *RsConfig) NewWriter(outer io.Writer, p ...interface{}) (inner io.WriteCloser, err error) {
-    // TODO TODO
-    return nil, nil
+    return NewRsWriter(c, outer), nil
 }
 
 func ReadRsConfig(reader io.Reader) (*RsConfig, error) {

@@ -135,7 +135,7 @@ func NewWriter(kblob io.WriteSeeker, resistType byte, cipherType byte, p ...inte
             panic("Bad Rs parameter")
         }
 
-        resist = &RsConfig{dataPieceSize, dataPieceCount, parityPieceCount, 0}
+        resist = &RsConfig{int32(dataPieceSize), int8(dataPieceCount), int8(parityPieceCount), 0}
 
     default:
         panic("Bad resist type")

@@ -19,6 +19,9 @@ type WriterWorker interface {
     // function that reads the chunk into a slice and
     // returns how many bytes were read.
     Ready(func([]byte) (int, error)) error
+
+    // Called at the end of the encode to finish up:
+    Close() error
 }
 
 type WorkerWriter struct {
@@ -59,6 +62,8 @@ func (w *WorkerWriter) Encode() {
             w.Bufs[readyBuf].Reset()
         }
     }
+
+    err = w.Worker.Close()
 }
 
 func (w *WorkerWriter) Write(p []byte) (n int, err error) {

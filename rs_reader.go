@@ -24,29 +24,35 @@ type RsReaderWorker struct {
 
 func (r *RsReaderWorker) Ready(putChunk func([]byte) error) (err error) {
 
+    dataPieceSize := int(r.Config.DataPieceSize)
+    dataPieceCount := int(r.Config.DataPieceCount)
+    parityPieceCount := int(r.Config.ParityPieceCount)
+
     // Read the next chunk:
     _, err = ReadAllOf(r.ResistText, r.Pieces[r.PieceNum], 0)
     if err != nil {
         return
     }
 
-    // Verify its checksum.
-    writtenChecksum := uint32(r.Pieces[r.PieceNum][r.Config.DataPieceSize])
-    writtenChecksum |= uint32(r.Pieces[r.PieceNum][r.Config.DataPieceSize + 1] << 8)
-    writtenChecksum |= uint32(r.Pieces[r.PieceNum][r.Config.DataPieceSize + 2] << 16)
-    writtenChecksum |= uint32(r.Pieces[r.PieceNum][r.Config.DataPieceSize + 3] << 24)
+    // If this is a data piece, verify its checksum.
+    if r.PieceNum < dataPieceCount {
+        writtenChecksum := uint32(r.Pieces[r.PieceNum][dataPieceSize])
+        writtenChecksum |= uint32(r.Pieces[r.PieceNum][dataPieceSize + 1] << 8)
+        writtenChecksum |= uint32(r.Pieces[r.PieceNum][dataPieceSize + 2] << 16)
+        writtenChecksum |= uint32(r.Pieces[r.PieceNum][dataPieceSize + 3] << 24)
 
-    calcChecksum := crc32.Checksum(r.Pieces[r.PieceNum][:r.Config.DataPieceSize], r.CrcTab)
-    if calcChecksum != writtenChecksum {
-        // This piece isn't valid.  Drop it; we'll use
-        // the reed-solomon encoding to reconstruct it,
-        // hopefully.
-        r.MissingPieces += 1
-        r.Pieces[r.PieceNum] = nil
+        calcChecksum := crc32.Checksum(r.Pieces[r.PieceNum][:dataPieceSize], r.CrcTab)
+        if calcChecksum != writtenChecksum {
+            // This piece isn't valid.  Drop it; we'll use
+            // the reed-solomon encoding to reconstruct it,
+            // hopefully.
+            r.MissingPieces += 1
+            r.Pieces[r.PieceNum] = nil
+        }
     }
 
     r.PieceNum += 1
-    if r.PieceNum == r.Config.DataPieceCount {
+    if r.PieceNum == (dataPieceCount + parityPieceCount) {
 
         // Reconstruct any missing pieces:
         if r.MissingPieces > 0 {
@@ -58,11 +64,11 @@ func (r *RsReaderWorker) Ready(putChunk func([]byte) error) (err error) {
 
         // Push the data pieces into the next tier
         // of reading:
-        for i := 0; i < r.Config.DataPieceCount; i++ {
+        for i := 0; i < dataPieceCount; i++ {
             // The inner data will have been padded to fit
             // the final reed-solomon matrix; track this
             // and drop the final padding
-            pieceLength := int64(r.Config.DataPieceSize)
+            pieceLength := int64(dataPieceSize)
             if (r.InnerLengthRead + pieceLength) > r.Config.TotalInnerLength {
                 pieceLength = r.Config.TotalInnerLength - r.InnerLengthRead
             }
@@ -86,14 +92,18 @@ func (r *RsReaderWorker) Ready(putChunk func([]byte) error) (err error) {
 }
 
 func NewRsReader(config *RsConfig, outer io.Reader) *WorkerReader {
-    enc, err := reedsolomon.New(config.DataPieceCount, config.ParityPieceCount)
+    dataPieceSize := int(config.DataPieceSize)
+    dataPieceCount := int(config.DataPieceCount)
+    parityPieceCount := int(config.ParityPieceCount)
+
+    enc, err := reedsolomon.New(dataPieceCount, parityPieceCount)
     if err != nil {
         panic(err.Error())
     }
 
-    pieces := make([][]byte, config.DataPieceCount + config.ParityPieceCount)
-    for i := 0; i < (config.DataPieceCount + config.ParityPieceCount); i++ {
-        pieces[i] = make([]byte, config.DataPieceSize + 4) // 4 checksum bytes
+    pieces := make([][]byte, dataPieceCount + parityPieceCount)
+    for i := 0; i < len(pieces); i++ {
+        pieces[i] = make([]byte, dataPieceSize + 4) // 4 checksum bytes
     }
 
     worker := &RsReaderWorker{

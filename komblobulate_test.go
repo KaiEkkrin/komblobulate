@@ -104,3 +104,8 @@ func TODORemoveWhenFixed_TestNullAeadCorruptData(t *testing.T) {
 
 // TODO Test short and long chunk sizes, writes several chunks long, etc.
 
+func TestRsNullShort_16_4_2(t *testing.T) {
+    testWriteAndRead(t, getShortData(), &DuringTestNull{}, ResistType_Rs, CipherType_None, 16, 4, 2)
+}
+
+
