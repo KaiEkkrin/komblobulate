@@ -26,13 +26,7 @@ type WorkerReader struct {
 }
 
 func (w *WorkerReader) Decode(bufIdx int) {
-    var err error
     defer func() {
-        // I have no exit route for this!
-        if err != nil && err != io.EOF {
-            panic(err.Error())
-        }
-
         // Forever indicate we've finished on request:
         for {
             w.Ready <- -1
@@ -40,14 +34,26 @@ func (w *WorkerReader) Decode(bufIdx int) {
     }()
 
     for {
-        w.Bufs[bufIdx].Reset()
-        err = w.Worker.Ready(func(chunk []byte) error {
+        workErr := w.Worker.Ready(func(chunk []byte) (err error) {
+            // Send along these data
             _, err = w.Bufs[bufIdx].Write(chunk)
-            return err
+            if err != nil {
+                return err
+            }
+
+            w.Ready <- bufIdx
+
+            // Switch to the other buffer for the next one
+            bufIdx = 1 - bufIdx
+            w.Bufs[bufIdx].Reset()
+
+            return
         })
 
-        w.Ready <- bufIdx
-        bufIdx = 1 - bufIdx
+        // TODO I have no exit route for this error right now
+        if workErr != nil {
+            panic(workErr.Error())
+        }
     }
 }
 
@@ -63,7 +69,8 @@ func (w *WorkerReader) Read(p []byte) (n int, err error) {
     }
 
     // Read however much is in the buffer:
-    return w.Bufs[w.CurrentInputBuf].Read(p)
+    n, err = w.Bufs[w.CurrentInputBuf].Read(p)
+    return
 }
 
 func NewWorkerReader(worker ReaderWorker) *WorkerReader {

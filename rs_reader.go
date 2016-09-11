@@ -28,7 +28,7 @@ func (r *RsReaderWorker) Ready(putChunk func([]byte) error) (err error) {
     dataPieceCount := int(r.Config.DataPieceCount)
     parityPieceCount := int(r.Config.ParityPieceCount)
 
-    // Read the next chunk:
+    // Read the next chunk.
     _, err = ReadAllOf(r.ResistText, r.Pieces[r.PieceNum], 0)
     if err != nil {
         return
@@ -37,9 +37,9 @@ func (r *RsReaderWorker) Ready(putChunk func([]byte) error) (err error) {
     // If this is a data piece, verify its checksum.
     if r.PieceNum < dataPieceCount {
         writtenChecksum := uint32(r.Pieces[r.PieceNum][dataPieceSize])
-        writtenChecksum |= uint32(r.Pieces[r.PieceNum][dataPieceSize + 1] << 8)
-        writtenChecksum |= uint32(r.Pieces[r.PieceNum][dataPieceSize + 2] << 16)
-        writtenChecksum |= uint32(r.Pieces[r.PieceNum][dataPieceSize + 3] << 24)
+        writtenChecksum |= (uint32(r.Pieces[r.PieceNum][dataPieceSize + 1]) << 8)
+        writtenChecksum |= (uint32(r.Pieces[r.PieceNum][dataPieceSize + 2]) << 16)
+        writtenChecksum |= (uint32(r.Pieces[r.PieceNum][dataPieceSize + 3]) << 24)
 
         calcChecksum := crc32.Checksum(r.Pieces[r.PieceNum][:dataPieceSize], r.CrcTab)
         if calcChecksum != writtenChecksum {

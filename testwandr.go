@@ -6,8 +6,8 @@ package komblobulate
 
 import (
     "bytes"
+    "fmt"
     "io"
-    "io/ioutil"
     "os"
     "testing"
     )
@@ -41,7 +41,7 @@ func writeTestData(source io.Reader, dest io.WriteSeeker, resistType, cipherType
 func testWriteAndRead(t *testing.T, data []byte, dt DuringTest, resistType, cipherType byte, p ...interface{}) {
     input := bytes.NewReader(data)
     
-    kblob, err := ioutil.TempFile("", "")
+    kblob, err := os.Create("temp.kblob")
     if err != nil {
         t.Fatal(err.Error())
     }
@@ -71,6 +71,9 @@ func testWriteAndRead(t *testing.T, data []byte, dt DuringTest, resistType, ciph
     if blobLen <= int64(len(data)) {
         t.Fatalf("Blob too short, expected more than %d, got %d", len(data), blobLen)
     }
+
+    // TODO remove debug
+    fmt.Printf("Kblob length is %d\n", blobLen)
 
     kblob, err = os.OpenFile(blobName, os.O_RDWR, 0)
     if err != nil {
