@@ -23,13 +23,14 @@ type WorkerReader struct {
     Bufs [2]bytes.Buffer
     CurrentInputBuf int
     Ready chan int
+    Error chan error
 }
 
 func (w *WorkerReader) Decode(bufIdx int) {
     defer func() {
         // Forever indicate we've finished on request:
         for {
-            w.Ready <- -1
+            w.Error <- io.EOF
         }
     }()
 
@@ -50,9 +51,8 @@ func (w *WorkerReader) Decode(bufIdx int) {
             return
         })
 
-        // TODO I have no exit route for this error right now
         if workErr != nil {
-            panic(workErr.Error())
+            w.Error <- workErr
         }
     }
 }
@@ -60,16 +60,16 @@ func (w *WorkerReader) Decode(bufIdx int) {
 func (w *WorkerReader) Read(p []byte) (n int, err error) {
     // If we've run out of data, wait for more:
     if w.Bufs[w.CurrentInputBuf].Len() == 0 {
-        w.CurrentInputBuf = <- w.Ready
-    }
-        
-    // The end-of-file condition:
-    if w.CurrentInputBuf == -1 {
-        return 0, io.EOF
+        select {
+        case w.CurrentInputBuf = <- w.Ready:
+            // Read however much is in this buffer:
+            n, err = w.Bufs[w.CurrentInputBuf].Read(p)
+
+        case workErr := <- w.Error:
+            err = workErr
+        }
     }
 
-    // Read however much is in the buffer:
-    n, err = w.Bufs[w.CurrentInputBuf].Read(p)
     return
 }
 
@@ -78,6 +78,7 @@ func NewWorkerReader(worker ReaderWorker) *WorkerReader {
         Worker: worker,
         CurrentInputBuf: 0,
         Ready: make(chan int),
+        Error: make(chan error),
     }
 
     go reader.Decode(1)

@@ -94,19 +94,29 @@ func (w *WorkerWriter) Write(p []byte) (n int, err error) {
         if w.Bufs[w.CurrentInputBuf].Len() == chunkSize {
             // Write this one and roll over to the other
             // input buffer:
-            w.Ready <- w.CurrentInputBuf
-            w.CurrentInputBuf = 1 - w.CurrentInputBuf 
+            select {
+            case w.Ready <- w.CurrentInputBuf:
+                w.CurrentInputBuf = 1 - w.CurrentInputBuf 
+
+            case err = <- w.Finished:
+                return
+            }
         }
     }
 
     return
 }
 
-func (w *WorkerWriter) Close() error {
+func (w *WorkerWriter) Close() (err error) {
     // Write whatever's left over in the current input buf:
     if w.Bufs[w.CurrentInputBuf].Len() > 0 {
-        w.Ready <- w.CurrentInputBuf
-        w.CurrentInputBuf = 1 - w.CurrentInputBuf
+        select {
+        case w.Ready <- w.CurrentInputBuf:
+            w.CurrentInputBuf = 1 - w.CurrentInputBuf
+
+        case err = <- w.Finished:
+            return
+        }
     }
 
     // Tell that goroutine to finish:
