@@ -27,13 +27,13 @@ func getRandomData(data []byte) {
 // (To exercise error propagation)
 
 func TestNullNullShort(t *testing.T) {
-	testWriteAndRead(t, getShortData(), &DuringTestNull{}, ResistType_None, CipherType_None, &TestNullNullParams{})
+	testWriteAndRead(t, getShortData(), &DuringTestNull{}, &TestNullNullParams{})
 }
 
 func TestNullNullLong(t *testing.T) {
 	data := make([]byte, 1024*128)
 	getRandomData(data)
-	testWriteAndRead(t, data, &DuringTestNull{}, ResistType_None, CipherType_None, &TestNullNullParams{})
+	testWriteAndRead(t, data, &DuringTestNull{}, &TestNullNullParams{})
 }
 
 func TestNullNullCorruptConfig0(t *testing.T) {
@@ -41,7 +41,7 @@ func TestNullNullCorruptConfig0(t *testing.T) {
 		Offsets: []int{1},
 		Data:    []byte{6},
 	}
-	testWriteAndRead(t, getShortData(), dt, ResistType_None, CipherType_None, &TestNullNullParams{})
+	testWriteAndRead(t, getShortData(), dt, &TestNullNullParams{})
 }
 
 func TestNullNullCorruptConfig1(t *testing.T) {
@@ -49,7 +49,7 @@ func TestNullNullCorruptConfig1(t *testing.T) {
 		Offsets: []int{3*ConfigSize + 1},
 		Data:    []byte{6},
 	}
-	testWriteAndRead(t, getShortData(), dt, ResistType_None, CipherType_None, &TestNullNullParams{})
+	testWriteAndRead(t, getShortData(), dt, &TestNullNullParams{})
 }
 
 func TestNullNullCorruptConfig2(t *testing.T) {
@@ -58,7 +58,7 @@ func TestNullNullCorruptConfig2(t *testing.T) {
 		Data:    []byte{6},
 		FromEnd: true,
 	}
-	testWriteAndRead(t, getShortData(), dt, ResistType_None, CipherType_None, &TestNullNullParams{})
+	testWriteAndRead(t, getShortData(), dt, &TestNullNullParams{})
 }
 
 // This one corrupts the body data rather than the config,
@@ -70,17 +70,17 @@ func TestNullNullCorruptData(t *testing.T) {
 		FromEnd:           true,
 		CorruptsInnerData: true,
 	}
-	testWriteAndRead(t, getShortData(), dt, ResistType_None, CipherType_None, &TestNullNullParams{})
+	testWriteAndRead(t, getShortData(), dt, &TestNullNullParams{})
 }
 
 func TestNullAeadShort(t *testing.T) {
-	testWriteAndRead(t, getShortData(), &DuringTestNull{}, ResistType_None, CipherType_Aead, &TestNullAeadParams{256, "password1"})
+	testWriteAndRead(t, getShortData(), &DuringTestNull{}, &TestNullAeadParams{256, "password1"})
 }
 
 func TestNullAeadLong(t *testing.T) {
 	data := make([]byte, 1024*128)
 	getRandomData(data)
-	testWriteAndRead(t, data, &DuringTestNull{}, ResistType_None, CipherType_Aead, &TestNullAeadParams{256, "password1"})
+	testWriteAndRead(t, data, &DuringTestNull{}, &TestNullAeadParams{256, "password1"})
 }
 
 // The AEAD should detect a single corrupt bit,
@@ -102,26 +102,26 @@ func TODORemoveWhenFixed_TestNullAeadCorruptData(t *testing.T) {
 		}
 	}()
 
-	testWriteAndRead(t, getShortData(), dt, ResistType_None, CipherType_Aead, &TestNullAeadParams{256, "password1"})
+	testWriteAndRead(t, getShortData(), dt, &TestNullAeadParams{256, "password1"})
 }
 
 // TODO Test short and long chunk sizes, writes several chunks long, etc.
 
 func TestRsNullShort_16_4_2(t *testing.T) {
-	testWriteAndRead(t, getShortData(), &DuringTestNull{}, ResistType_Rs, CipherType_None, &TestRsNullParams{16, 4, 2})
+	testWriteAndRead(t, getShortData(), &DuringTestNull{}, &TestRsNullParams{16, 4, 2})
 }
 
 func TestRsAeadShort_16_4_2(t *testing.T) {
-	testWriteAndRead(t, getShortData(), &DuringTestNull{}, ResistType_Rs, CipherType_Aead, &TestRsAeadParams{16, 4, 2, 256, "password1"})
+	testWriteAndRead(t, getShortData(), &DuringTestNull{}, &TestRsAeadParams{16, 4, 2, 256, "password1"})
 }
 
 func TestRsNullLengths_16_4_2(t *testing.T) {
-	params := [][]int{
-		[]int{64, 2, 1},
-		[]int{16, 4, 2},
-		[]int{21, 17, 3},
-		// TODO Why is this really slow?  Not that I intended to use it anyway
-		//[]int{984, 21, 4},
+	params := []TestParams{
+		&TestRsNullParams{64, 2, 1},
+		&TestRsNullParams{16, 4, 2},
+		&TestRsNullParams{21, 17, 3},
+		&TestRsAeadParams{16, 4, 2, 256, "password1"},
+		&TestRsAeadParams{32, 24, 3, 256, "password1"},
 	}
 
 	for p := 0; p < len(params); p++ {
@@ -134,7 +134,7 @@ func TestRsNullLengths_16_4_2(t *testing.T) {
 
 				data := make([]byte, dataLen)
 				getRandomData(data)
-				testWriteAndRead(t, data, &DuringTestNull{}, ResistType_Rs, CipherType_None, &TestRsNullParams{params[p][0], params[p][1], params[p][2]})
+				testWriteAndRead(t, data, &DuringTestNull{}, params[p])
 			}
 		}
 	}
