@@ -40,8 +40,14 @@ func findAgreement(things [3]interface{}, equals func(interface{}, interface{}) 
 // Given a reader of a kblobbed output, creates a reader of the
 // unblobbed contents.  The kblob itself will contain its
 // configuration.
-// TODO remove the "bloblen" argument, figure it out ourselves
-func NewReader(kblob io.ReadSeeker, bloblen int64, params KCodecParams) (unblob io.Reader, err error) {
+func NewReader(kblob io.ReadSeeker, params KCodecParams) (unblob io.Reader, err error) {
+
+	// Work out how big this blob is:
+	var bloblen int64
+	bloblen, err = kblob.Seek(0, 2)
+	if err != nil {
+		return nil, err
+	}
 
 	// The config is stored in three places -- twice at
 	// the beginning and once at the end.  Read out

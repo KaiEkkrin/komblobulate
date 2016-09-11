@@ -83,7 +83,7 @@ func testWriteAndRead(t *testing.T, data []byte, dt DuringTest, params TestParam
 	dt.AtRead(t, kinfo, kblob)
 
 	output := new(bytes.Buffer)
-	reader, err := NewReader(kblob, blobLen, params)
+	reader, err := NewReader(kblob, params)
 	if err != nil {
 		t.Fatal(err.Error())
 	}
