@@ -1,102 +1,101 @@
 /* Core testing function, defining an interface that
  * describes what things to do during the test.
-*/
+ */
 
 package komblobulate
 
 import (
-    "bytes"
-    "fmt"
-    "io"
-    "os"
-    "testing"
-    )
+	"bytes"
+	"fmt"
+	"io"
+	"os"
+	"testing"
+)
 
 type DuringTest interface {
-    // Called just after opening the written file
-    // for read.
-    AtRead(*testing.T, os.FileInfo, *os.File)
+	// Called just after opening the written file
+	// for read.
+	AtRead(*testing.T, os.FileInfo, *os.File)
 
-    // Called after the contained data has been
-    // read back.  (expected, actual)
-    AtEnd(*testing.T, []byte, []byte)
+	// Called after the contained data has been
+	// read back.  (expected, actual)
+	AtEnd(*testing.T, []byte, []byte)
 }
 
 func writeTestData(source io.Reader, dest io.WriteSeeker, resistType, cipherType byte, params KCodecParams) (int64, error) {
-    writer, err := NewWriter(dest, resistType, cipherType, params)
-    if err != nil {
-        return 0, err
-    }
+	writer, err := NewWriter(dest, resistType, cipherType, params)
+	if err != nil {
+		return 0, err
+	}
 
-    defer writer.Close()
+	defer writer.Close()
 
-    n, err := io.Copy(writer, source)
-    if err != nil {
-        return n, err
-    }
+	n, err := io.Copy(writer, source)
+	if err != nil {
+		return n, err
+	}
 
-    return n, nil
+	return n, nil
 }
 
 func testWriteAndRead(t *testing.T, data []byte, dt DuringTest, resistType, cipherType byte, params KCodecParams) {
-    input := bytes.NewReader(data)
-    
-    kblob, err := os.Create("temp.kblob")
-    if err != nil {
-        t.Fatal(err.Error())
-    }
-    blobName := kblob.Name()
-    defer func() {
-        kblob.Close()
-        os.Remove(blobName)
-    }()
+	input := bytes.NewReader(data)
 
-    n, err := writeTestData(input, kblob, resistType, cipherType, params)
-    if err != nil {
-        t.Fatal(err.Error())
-    }
+	kblob, err := os.Create("temp.kblob")
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+	blobName := kblob.Name()
+	defer func() {
+		kblob.Close()
+		os.Remove(blobName)
+	}()
 
-    if n != int64(len(data)) {
-        t.Fatalf("Wrote %d bytes, expected %d", n, len(data))
-    }
+	n, err := writeTestData(input, kblob, resistType, cipherType, params)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
 
-    // Flush that file out and reopen it:
-    kblob.Close()
-    kinfo, err := os.Stat(blobName)
-    if err != nil {
-        t.Fatal(err.Error())
-    }
+	if n != int64(len(data)) {
+		t.Fatalf("Wrote %d bytes, expected %d", n, len(data))
+	}
 
-    blobLen := int64(kinfo.Size())
-    if blobLen <= int64(len(data)) {
-        t.Fatalf("Blob too short, expected more than %d, got %d", len(data), blobLen)
-    }
+	// Flush that file out and reopen it:
+	kblob.Close()
+	kinfo, err := os.Stat(blobName)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
 
-    // TODO remove debug
-    fmt.Printf("Kblob length is %d\n", blobLen)
+	blobLen := int64(kinfo.Size())
+	if blobLen <= int64(len(data)) {
+		t.Fatalf("Blob too short, expected more than %d, got %d", len(data), blobLen)
+	}
 
-    kblob, err = os.OpenFile(blobName, os.O_RDWR, 0)
-    if err != nil {
-        t.Fatal(err.Error())
-    }
+	// TODO remove debug
+	fmt.Printf("Kblob length is %d\n", blobLen)
 
-    dt.AtRead(t, kinfo, kblob)
+	kblob, err = os.OpenFile(blobName, os.O_RDWR, 0)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
 
-    output := new(bytes.Buffer)
-    reader, err := NewReader(kblob, blobLen, params)
-    if err != nil {
-        t.Fatal(err.Error())
-    }
+	dt.AtRead(t, kinfo, kblob)
 
-    n, err = io.Copy(output, reader)
-    if err != nil {
-        t.Fatal(err.Error())
-    }
+	output := new(bytes.Buffer)
+	reader, err := NewReader(kblob, blobLen, params)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
 
-    if n != int64(len(data)) {
-        t.Fatalf("Read %d bytes, expected %d", n, len(data))
-    }
+	n, err = io.Copy(output, reader)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
 
-    dt.AtEnd(t, data, output.Bytes())
+	if n != int64(len(data)) {
+		t.Fatalf("Read %d bytes, expected %d", n, len(data))
+	}
+
+	dt.AtEnd(t, data, output.Bytes())
 }
-
