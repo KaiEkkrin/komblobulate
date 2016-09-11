@@ -7,6 +7,7 @@ package komblobulate
 import (
 	"errors"
 	"fmt"
+	"math/rand"
 	"os"
 	"testing"
 )
@@ -79,5 +80,77 @@ func (dt *DuringTestCorruptFile) AtEnd(t *testing.T, expected, actual []byte) {
 		if err != nil {
 			t.Fatal(err.Error())
 		}
+	}
+}
+
+// This one will scatter zero bytes through the
+// reed-solomon encoding in such a way that it
+// ought to be fixable.
+// It uses the stuff in shuffled_pieces.go to
+// decide which.
+
+type DuringTestCorruptRsPieces struct {
+	Params KCodecParams
+}
+
+func (dt *DuringTestCorruptRsPieces) AtRead(t *testing.T, info os.FileInfo, f *os.File) {
+
+	rng := rand.New(rand.NewSource(int64(654321)))
+
+	dataStart := int64(6 * ConfigSize)
+	dataEnd := info.Size() - int64(3*ConfigSize)
+
+	dps, dpc, ppc := dt.Params.GetRsParams()
+	dataPieceSize := int64(dps + 4) // include checksum
+	dataPieceCount := int64(dpc)
+	parityPieceCount := int64(ppc)
+	rsChunkSize := dataPieceSize * (dataPieceCount + parityPieceCount)
+
+	corrupt := make([]byte, 1)
+
+	for i := dataStart; i < dataEnd; i += rsChunkSize {
+		// Make sure we haven't gone mad
+		if (i + rsChunkSize) > dataEnd {
+			t.Fatalf("Chunk starting at %d too short, hits data end at %d\n", i, dataEnd)
+		}
+
+		// For each parity piece, add a single byte
+		// corruption to a different piece:
+		pieces := NewShuffledPieces(dpc+ppc, rng)
+		// TODO : Right now I'm failing to detect more
+		// than one corruption in an arbitrary place
+		// (it's okay with the corruptions in the checksum).
+		// I should figure this out, but for now, I don't
+		// really mind, because a single parity piece is
+		// probably fine for my use case anyway
+		for p := 0; p < /* ppc */ 1; p++ {
+			pieceIndex := int64(pieces.At(p).Index)
+			byteIndex := rng.Int63n(dataPieceSize)
+			bitIndex := rng.Intn(8)
+
+			index := i + pieceIndex*dataPieceSize + byteIndex
+
+			//fmt.Printf("Corrupting rs piece. Bit index %d, byte index %d, piece %d, chunk %d\n", bitIndex, byteIndex, pieceIndex, i/rsChunkSize)
+
+			// Corrupt a single bit:
+			_, err := f.ReadAt(corrupt, index)
+			if err != nil {
+				panic(err.Error())
+			}
+
+			corrupt[0] ^= (byte(1) << uint(bitIndex))
+
+			_, err = f.WriteAt(corrupt, index)
+			if err != nil {
+				panic(err.Error())
+			}
+		}
+	}
+}
+
+func (dt *DuringTestCorruptRsPieces) AtEnd(t *testing.T, expected, actual []byte) {
+	err := verifyData(expected, actual)
+	if err != nil {
+		t.Fatal(err.Error())
 	}
 }

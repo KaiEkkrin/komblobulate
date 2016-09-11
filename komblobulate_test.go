@@ -115,13 +115,13 @@ func TestRsAeadShort_16_4_2(t *testing.T) {
 	testWriteAndRead(t, getShortData(), &DuringTestNull{}, &TestRsAeadParams{16, 4, 2, 256, "password1"})
 }
 
-func TestRsNullLengths_16_4_2(t *testing.T) {
+func TestRsVarious(t *testing.T) {
 	params := []TestParams{
 		&TestRsNullParams{64, 2, 1},
 		&TestRsNullParams{16, 4, 2},
 		&TestRsNullParams{21, 17, 3},
-		&TestRsAeadParams{16, 4, 2, 256, "password1"},
-		&TestRsAeadParams{32, 24, 3, 256, "password1"},
+		&TestRsAeadParams{128, 8, 1, 256 * 1024, "password1"},
+		&TestRsAeadParams{32, 24, 3, 256 * 1024, "password1"},
 	}
 
 	for p := 0; p < len(params); p++ {
@@ -132,9 +132,14 @@ func TestRsNullLengths_16_4_2(t *testing.T) {
 				dataLen := 1024*128 + sign*i*i
 				fmt.Printf("Testing data length %d...\n", dataLen)
 
+				// Make sure everything is okay with no errors
 				data := make([]byte, dataLen)
 				getRandomData(data)
 				testWriteAndRead(t, data, &DuringTestNull{}, params[p])
+
+				// Try introducing some errors
+				fmt.Printf("Testing with introduced errors:\n")
+				testWriteAndRead(t, data, &DuringTestCorruptRsPieces{params[p]}, params[p])
 			}
 		}
 	}
