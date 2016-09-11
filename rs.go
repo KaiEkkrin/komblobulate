@@ -56,11 +56,11 @@ func (c *RsConfig) WriteConfig(writer io.Writer) (err error) {
     return err
 }
 
-func (c *RsConfig) NewReader(outer io.Reader, outerLength int64, p ...interface{}) (inner io.Reader, innerLength int64, err error) {
+func (c *RsConfig) NewReader(outer io.Reader, outerLength int64, params KCodecParams) (inner io.Reader, innerLength int64, err error) {
     return NewRsReader(c, outer), c.TotalInnerLength, nil
 }
 
-func (c *RsConfig) NewWriter(outer io.Writer, p ...interface{}) (inner io.WriteCloser, err error) {
+func (c *RsConfig) NewWriter(outer io.Writer, params KCodecParams) (inner io.WriteCloser, err error) {
     return NewRsWriter(c, outer), nil
 }
 

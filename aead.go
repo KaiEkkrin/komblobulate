@@ -38,18 +38,7 @@ type AeadConfig struct {
     Salt [8]byte
 }
 
-func (c *AeadConfig) makeAead(p ...interface{}) (aead cipher.AEAD, err error) {
-
-    // The varargs should actually just contain a single
-    // password string:
-    if len(p) == 0 {
-        return nil, errors.New("No cipher parameters")
-    }
-
-    password, ok := p[0].(string)
-    if !ok {
-        return nil, errors.New("Bad password parameter")
-    }
+func (c *AeadConfig) makeAead(password string) (aead cipher.AEAD, err error) {
 
     // Derive the key from that password:
     key := pbkdf2.Key([]byte(password), c.Salt[:], 16384, 16, sha256.New)
@@ -91,22 +80,10 @@ func (c *AeadConfig) WriteConfig(writer io.Writer) (err error) {
     return err
 }
 
-func (c *AeadConfig) NewReader(outer io.Reader, outerLength int64, p ...interface{}) (inner io.Reader, innerLength int64, err error) {
+func (c *AeadConfig) NewReader(outer io.Reader, outerLength int64, params KCodecParams) (inner io.Reader, innerLength int64, err error) {
 
     var aead cipher.AEAD
-
-    // We may have been given a chunk size parameter --
-    // skip it if we have
-    if len(p) > 0 {
-        if _, isInt := p[0].(int64); isInt {
-            aead, err = c.makeAead(p[1:]...)
-        } else {
-            aead, err = c.makeAead(p...)
-        }
-    } else {
-        err = errors.New("No cipher parameters")
-    }
-
+    aead, err = c.makeAead(params.GetAeadPassword())
     if err != nil {
         return
     }
@@ -117,9 +94,9 @@ func (c *AeadConfig) NewReader(outer io.Reader, outerLength int64, p ...interfac
     return reader, -1, nil
 }
 
-func (c *AeadConfig) NewWriter(outer io.Writer, p ...interface{}) (inner io.WriteCloser, err error) {
+func (c *AeadConfig) NewWriter(outer io.Writer, params KCodecParams) (inner io.WriteCloser, err error) {
 
-    aead, err := c.makeAead(p...)
+    aead, err := c.makeAead(params.GetAeadPassword())
     if err != nil {
         return
     }

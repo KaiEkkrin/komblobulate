@@ -35,11 +35,11 @@ func (c *NullConfig) WriteConfig(writer io.Writer) error {
     return err
 }
 
-func (c *NullConfig) NewReader(outer io.Reader, outerLength int64, p ...interface{}) (io.Reader, int64, error) {
+func (c *NullConfig) NewReader(outer io.Reader, outerLength int64, params KCodecParams) (io.Reader, int64, error) {
     return outer, outerLength, nil
 }
 
-func (c *NullConfig) NewWriter(outer io.Writer, p ...interface{}) (io.WriteCloser, error) {
+func (c *NullConfig) NewWriter(outer io.Writer, params KCodecParams) (io.WriteCloser, error) {
     return &NullWriteCloser{outer}, nil
 }
 

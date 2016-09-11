@@ -40,10 +40,8 @@ func findAgreement(things [3]interface{}, equals func(interface{}, interface{}) 
 // Given a reader of a kblobbed output, creates a reader of the
 // unblobbed contents.  The kblob itself will contain its
 // configuration.
-// The variable arguments will go to the cipher codec,
-// e.g. should contain the passphrase.
 // TODO remove the "bloblen" argument, figure it out ourselves
-func NewReader(kblob io.ReadSeeker, bloblen int64, p ...interface{}) (unblob io.Reader, err error) {
+func NewReader(kblob io.ReadSeeker, bloblen int64, params KCodecParams) (unblob io.Reader, err error) {
 
     // The config is stored in three places -- twice at
     // the beginning and once at the end.  Read out
@@ -89,27 +87,18 @@ func NewReader(kblob io.ReadSeeker, bloblen int64, p ...interface{}) (unblob io.
         return
     }
 
-    unResist, unResistLength, err := resist.NewReader(unConfig, bloblen - int64(9 * ConfigSize))
+    unResist, unResistLength, err := resist.NewReader(unConfig, bloblen - int64(9 * ConfigSize), params)
     if err != nil {
         return
     }
 
-    unblob, _, err = cipher.NewReader(unResist, unResistLength, p...)
+    unblob, _, err = cipher.NewReader(unResist, unResistLength, params)
     return
 }
 
 // Given a writer of where the user wants the kblobbed output to
 // go and a configuration, creates a writer for unblobbed contents.
-// The variable parameters should contain the relevant parameters
-// to create the resist codec, followed by those to create the
-// cipher codec.  For example:
-// - a none config wants none
-// - rs wants three integers DataPieceSize, DataPieceCount,
-// ParityPieceCount
-// - aead wants a chunk size (int64) and a passphrase.
-func NewWriter(kblob io.WriteSeeker, resistType byte, cipherType byte, p ...interface{}) (unblob io.WriteCloser, err error) {
-
-    pIdx := 0
+func NewWriter(kblob io.WriteSeeker, resistType byte, cipherType byte, params KCodecParams) (unblob io.WriteCloser, err error) {
 
     var resist, cipher KCodec
     switch resistType {
@@ -117,24 +106,7 @@ func NewWriter(kblob io.WriteSeeker, resistType byte, cipherType byte, p ...inte
         resist = &NullConfig{}
 
     case ResistType_Rs:
-        dataPieceSize, ok := p[pIdx].(int)
-        pIdx++
-        if !ok {
-            panic("Bad Rs parameter")
-        }
-
-        dataPieceCount, ok := p[pIdx].(int)
-        pIdx++
-        if !ok {
-            panic("Bad Rs parameter")
-        }
-
-        parityPieceCount, ok := p[pIdx].(int)
-        pIdx++
-        if !ok {
-            panic("Bad Rs parameter")
-        }
-
+        dataPieceSize, dataPieceCount, parityPieceCount := params.GetRsParams()
         resist = &RsConfig{int32(dataPieceSize), int8(dataPieceCount), int8(parityPieceCount), 0}
 
     default:
@@ -146,13 +118,7 @@ func NewWriter(kblob io.WriteSeeker, resistType byte, cipherType byte, p ...inte
         cipher = &NullConfig{}
 
     case CipherType_Aead:
-        chunkSize, ok := p[pIdx].(int64)
-        pIdx++
-        if !ok {
-            panic("Bad Aead parameter")
-        }
-
-        cipher, err = NewAeadConfig(chunkSize)
+        cipher, err = NewAeadConfig(int64(params.GetAeadChunkSize()))
         if err != nil {
             panic(err.Error())
         }
@@ -175,12 +141,12 @@ func NewWriter(kblob io.WriteSeeker, resistType byte, cipherType byte, p ...inte
     }
 
     // Create the inner writers:
-    resistWriter, err := resist.NewWriter(kblob)
+    resistWriter, err := resist.NewWriter(kblob, params)
     if err != nil {
         return
     }
 
-    cipherWriter, err := cipher.NewWriter(resistWriter, p[pIdx:]...)
+    cipherWriter, err := cipher.NewWriter(resistWriter, params)
     if err != nil {
         return
     }

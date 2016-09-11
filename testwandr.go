@@ -22,8 +22,8 @@ type DuringTest interface {
     AtEnd(*testing.T, []byte, []byte)
 }
 
-func writeTestData(source io.Reader, dest io.WriteSeeker, resistType, cipherType byte, p ...interface{}) (int64, error) {
-    writer, err := NewWriter(dest, resistType, cipherType, p...)
+func writeTestData(source io.Reader, dest io.WriteSeeker, resistType, cipherType byte, params KCodecParams) (int64, error) {
+    writer, err := NewWriter(dest, resistType, cipherType, params)
     if err != nil {
         return 0, err
     }
@@ -38,7 +38,7 @@ func writeTestData(source io.Reader, dest io.WriteSeeker, resistType, cipherType
     return n, nil
 }
 
-func testWriteAndRead(t *testing.T, data []byte, dt DuringTest, resistType, cipherType byte, p ...interface{}) {
+func testWriteAndRead(t *testing.T, data []byte, dt DuringTest, resistType, cipherType byte, params KCodecParams) {
     input := bytes.NewReader(data)
     
     kblob, err := os.Create("temp.kblob")
@@ -51,7 +51,7 @@ func testWriteAndRead(t *testing.T, data []byte, dt DuringTest, resistType, ciph
         os.Remove(blobName)
     }()
 
-    n, err := writeTestData(input, kblob, resistType, cipherType, p...)
+    n, err := writeTestData(input, kblob, resistType, cipherType, params)
     if err != nil {
         t.Fatal(err.Error())
     }
@@ -83,7 +83,7 @@ func testWriteAndRead(t *testing.T, data []byte, dt DuringTest, resistType, ciph
     dt.AtRead(t, kinfo, kblob)
 
     output := new(bytes.Buffer)
-    reader, err := NewReader(kblob, blobLen, p...)
+    reader, err := NewReader(kblob, blobLen, params)
     if err != nil {
         t.Fatal(err.Error())
     }
