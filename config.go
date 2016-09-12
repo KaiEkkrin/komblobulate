@@ -8,7 +8,12 @@ import (
 	"io"
 )
 
+const (
+	CurrentVersion = byte(1)
+)
+
 type Config struct {
+	Version    byte
 	ResistType byte
 	CipherType byte
 }

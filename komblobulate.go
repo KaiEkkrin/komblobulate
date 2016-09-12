@@ -9,6 +9,7 @@ package komblobulate
 
 import (
 	"errors"
+	"fmt"
 	"io"
 )
 
@@ -69,6 +70,11 @@ func NewReader(kblob io.ReadSeeker, params KCodecParams) (unblob io.Reader, err 
 		if err == nil {
 			err = errors.New("No config agreement")
 		}
+		return
+	}
+
+	if config.Version > CurrentVersion {
+		err = errors.New(fmt.Sprintf("Version %d not supported", config.Version))
 		return
 	}
 
@@ -133,7 +139,7 @@ func NewWriter(kblob io.WriteSeeker, resistType byte, cipherType byte, params KC
 		panic("Bad cipher type")
 	}
 
-	config := &Config{resistType, cipherType}
+	config := &Config{CurrentVersion, resistType, cipherType}
 
 	// Write the whole config twice at the start:
 	err = config.WriteConfig(kblob, resist, cipher)
