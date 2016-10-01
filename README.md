@@ -2,7 +2,7 @@
 
 Komblobulate is an encrypting, error resistant file container format, and a Go library for wrapping a file in this format.  The library is available freely under the MIT license.
 
-For a simple example of usage, see my [kblob_cmd](https://github.com/kaiekkrin/kblob_cmd) project, which implements a simple command line interface.  Some day I might write some documentation.
+For a simple example of usage, see my [kblob_cmd](https://github.com/kaiekkrin/kblob_cmd) project, which implements a command line interface.  Some day I might write some documentation.
 
 Komblobulate provides:
 
