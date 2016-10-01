@@ -2,12 +2,13 @@
  * describes what things to do during the test.
  */
 
-package komblobulate
+package test
 
 import (
 	"bytes"
 	"fmt"
 	"io"
+	"komblobulate"
 	"os"
 	"testing"
 )
@@ -23,7 +24,7 @@ type DuringTest interface {
 }
 
 func writeTestData(source io.Reader, dest io.WriteSeeker, params TestParams) (int64, error) {
-	writer, err := NewWriter(dest, params.GetResistType(), params.GetCipherType(), params)
+	writer, err := komblobulate.NewWriter(dest, params.GetResistType(), params.GetCipherType(), params)
 	if err != nil {
 		return 0, err
 	}
@@ -83,7 +84,7 @@ func testWriteAndRead(t *testing.T, data []byte, dt DuringTest, params TestParam
 	dt.AtRead(t, kinfo, kblob)
 
 	output := new(bytes.Buffer)
-	reader, err := NewReader(kblob, params)
+	reader, err := komblobulate.NewReader(kblob, params)
 	if err != nil {
 		t.Fatal(err.Error())
 	}

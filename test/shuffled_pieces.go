@@ -2,7 +2,7 @@
  * the pieces in a reed-solomon encoded chunk.
  */
 
-package komblobulate
+package test
 
 import (
 	"math/rand"

@@ -1,7 +1,8 @@
-package komblobulate
+package test
 
 import (
 	"fmt"
+	"komblobulate"
 	"math/rand"
 	"testing"
 )
@@ -46,7 +47,7 @@ func TestNullNullCorruptConfig0(t *testing.T) {
 
 func TestNullNullCorruptConfig1(t *testing.T) {
 	dt := &DuringTestCorruptFile{
-		Offsets: []int{3*ConfigSize + 1},
+		Offsets: []int{3*komblobulate.ConfigSize + 1},
 		Data:    []byte{6},
 	}
 	testWriteAndRead(t, getShortData(), dt, &TestNullNullParams{})
@@ -65,7 +66,7 @@ func TestNullNullCorruptConfig2(t *testing.T) {
 // which isn't protected against here:
 func TestNullNullCorruptData(t *testing.T) {
 	dt := &DuringTestCorruptFile{
-		Offsets:           []int{1 + 3*ConfigSize},
+		Offsets:           []int{1 + 3*komblobulate.ConfigSize},
 		Data:              []byte{6},
 		FromEnd:           true,
 		CorruptsInnerData: true,
@@ -91,7 +92,7 @@ func TestNullAeadLong(t *testing.T) {
 // goroutine.  Hmm...
 func TODORemoveWhenFixed_TestNullAeadCorruptData(t *testing.T) {
 	dt := &DuringTestCorruptFile{
-		Offsets: []int{1 + 3*ConfigSize},
+		Offsets: []int{1 + 3*komblobulate.ConfigSize},
 		Data:    []byte{6},
 		FromEnd: true,
 	}

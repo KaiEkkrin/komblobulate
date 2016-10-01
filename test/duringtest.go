@@ -2,11 +2,12 @@
  * test cases.
  */
 
-package komblobulate
+package test
 
 import (
 	"errors"
 	"fmt"
+	"komblobulate"
 	"math/rand"
 	"os"
 	"testing"
@@ -90,15 +91,15 @@ func (dt *DuringTestCorruptFile) AtEnd(t *testing.T, expected, actual []byte) {
 // decide which.
 
 type DuringTestCorruptRsPieces struct {
-	Params KCodecParams
+	Params komblobulate.KCodecParams
 }
 
 func (dt *DuringTestCorruptRsPieces) AtRead(t *testing.T, info os.FileInfo, f *os.File) {
 
 	rng := rand.New(rand.NewSource(int64(654321)))
 
-	dataStart := int64(6 * ConfigSize)
-	dataEnd := info.Size() - int64(3*ConfigSize)
+	dataStart := int64(6 * komblobulate.ConfigSize)
+	dataEnd := info.Size() - int64(3*komblobulate.ConfigSize)
 
 	dps, dpc, ppc := dt.Params.GetRsParams()
 	dataPieceSize := int64(dps + 4) // include checksum

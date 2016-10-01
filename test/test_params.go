@@ -1,9 +1,11 @@
-package komblobulate
+package test
+
+import "komblobulate"
 
 // Some implementations of KCodecParams:
 
 type TestParams interface {
-	KCodecParams
+	komblobulate.KCodecParams
 	GetResistType() byte
 	GetCipherType() byte
 }
@@ -24,11 +26,11 @@ func (p *TestNullNullParams) GetAeadPassword() string {
 }
 
 func (p *TestNullNullParams) GetResistType() byte {
-	return ResistType_None
+	return komblobulate.ResistType_None
 }
 
 func (p *TestNullNullParams) GetCipherType() byte {
-	return CipherType_None
+	return komblobulate.CipherType_None
 }
 
 type TestNullAeadParams struct {
@@ -49,11 +51,11 @@ func (p *TestNullAeadParams) GetAeadPassword() string {
 }
 
 func (p *TestNullAeadParams) GetResistType() byte {
-	return ResistType_None
+	return komblobulate.ResistType_None
 }
 
 func (p *TestNullAeadParams) GetCipherType() byte {
-	return CipherType_Aead
+	return komblobulate.CipherType_Aead
 }
 
 type TestRsNullParams struct {
@@ -75,11 +77,11 @@ func (p *TestRsNullParams) GetAeadPassword() string {
 }
 
 func (p *TestRsNullParams) GetResistType() byte {
-	return ResistType_Rs
+	return komblobulate.ResistType_Rs
 }
 
 func (p *TestRsNullParams) GetCipherType() byte {
-	return CipherType_None
+	return komblobulate.CipherType_None
 }
 
 type TestRsAeadParams struct {
@@ -103,9 +105,9 @@ func (p *TestRsAeadParams) GetAeadPassword() string {
 }
 
 func (p *TestRsAeadParams) GetResistType() byte {
-	return ResistType_Rs
+	return komblobulate.ResistType_Rs
 }
 
 func (p *TestRsAeadParams) GetCipherType() byte {
-	return CipherType_Aead
+	return komblobulate.CipherType_Aead
 }
